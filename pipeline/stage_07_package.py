@@ -1,15 +1,36 @@
 """Stage 7: package outputs for delivery — commit a small preview thumbnail
-to the dashboard, write description/tags for the user's manual upload, and
-mark the video ready_to_download in the status store."""
+to the dashboard, write the upload metadata, and mark the video
+ready_to_download in the status store."""
 import json
 import shutil
 from pathlib import Path
 
-from pipeline import status_store
+from pipeline import costs, status_store
 from pipeline.config import DOCS_DIR
 
-# Rough per-video cost estimate (see plan doc §8) for dashboard visibility.
-COST_ESTIMATE_USD = 0.65
+UPLOAD_CHECKLIST = """UPLOAD CHECKLIST — read before publishing
+=========================================
+
+[ ] Set "Made for Kids" = YES in the YouTube upload flow.
+    This is a legal requirement (COPPA), not a preference. Misdeclaring
+    children's content carries FTC penalties per violation. It disables
+    personalised ads and comments on this video — that is expected.
+
+[ ] Watch the video start to finish before publishing. You are the only
+    human review step in this pipeline. Check specifically for:
+      - the mascot looking consistent and not resembling any existing
+        character you recognise from a film, show, book, or game
+      - narration matching the captions (audio drift)
+      - anything a parent would find inappropriate or frightening
+
+[ ] Confirm the title/description contain no brand or character names.
+
+Title:       {title}
+Theme:       {theme}
+Moral:       {moral}
+Duration:    {duration}
+Est. cost:   ${cost}
+"""
 
 
 def run(video_id: str, out_dir: Path) -> dict:
@@ -22,9 +43,24 @@ def run(video_id: str, out_dir: Path) -> dict:
     dashboard_thumb_path = dashboard_thumb_dir / "thumb.jpg"
     shutil.copy(out_dir / "thumbnail" / "thumb.jpg", dashboard_thumb_path)
 
-    # Description/tags bundled alongside the video artifact for manual upload.
+    # Metadata bundled alongside the video artifact for manual upload.
     (out_dir / "description.txt").write_text(script["video_description"], encoding="utf-8")
     (out_dir / "tags.txt").write_text(", ".join(script["tags"]), encoding="utf-8")
+
+    record = status_store.get_record(video_id) or {}
+    cost = costs.total_usd(out_dir)
+    duration = record.get("duration_seconds")
+
+    (out_dir / "UPLOAD_CHECKLIST.txt").write_text(
+        UPLOAD_CHECKLIST.format(
+            title=topic["title"],
+            theme=topic.get("theme_category", "—"),
+            moral=topic["moral"],
+            duration=f"{duration}s" if duration else "—",
+            cost=cost,
+        ),
+        encoding="utf-8",
+    )
 
     thumbnail_rel_path = f"videos/{video_id}/thumb.jpg"
     status_store.update_record(
@@ -32,7 +68,7 @@ def run(video_id: str, out_dir: Path) -> dict:
         status="ready_to_download",
         current_stage="done",
         thumbnail_path=thumbnail_rel_path,
-        cost_estimate_usd=COST_ESTIMATE_USD,
+        cost_estimate_usd=cost,
     )
 
-    return {"thumbnail_path": thumbnail_rel_path}
+    return {"thumbnail_path": thumbnail_rel_path, "cost_estimate_usd": cost}

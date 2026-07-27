@@ -54,9 +54,9 @@ def test_finish_stage_with_error_marks_record_failed(tmp_store):
 
 def test_update_record_merges_fields(tmp_store):
     status_store.init_record("2026-07-27")
-    status_store.update_record("2026-07-27", title="Rhymo Shares", scene_count=9)
+    status_store.update_record("2026-07-27", title="Hoplin Shares", scene_count=9)
     record = status_store.get_record("2026-07-27")
-    assert record["title"] == "Rhymo Shares"
+    assert record["title"] == "Hoplin Shares"
     assert record["scene_count"] == 9
 
 

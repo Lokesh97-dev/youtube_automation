@@ -3,7 +3,8 @@ height: 1080
 fps: 30
 video_codec: "libx264"
 audio_codec: "aac"
-video_bitrate: "4M"
+# Quality is controlled by CRF alone. Do not also set a target bitrate —
+# ffmpeg ignores one of them and the combination silently misleads.
 crf: 20
 
 # Ken Burns pan/zoom: fraction the image zooms in over the clip duration.
@@ -11,14 +12,12 @@ ken_burns_zoom_start: 1.0
 ken_burns_zoom_end: 1.08
 
 # Caption styling (burned in via ffmpeg subtitles filter).
-caption_font: "assets/fonts/OpenSans-Bold.ttf"
 caption_font_size: 46
-caption_font_color: "white"
-caption_outline_color: "black"
 caption_margin_v: 80
 
+# Optional. Leave null (or point at a missing file) to skip the watermark
+# overlay entirely rather than failing the render.
 watermark_path: "assets/branding/watermark.png"
-watermark_opacity: 0.85
 watermark_margin_px: 24
 
 background_music_path: null   # set in Phase 2, e.g. assets/music/soft-loop.mp3
@@ -27,3 +26,14 @@ background_music_volume_db: -22
 image_size: "1536x1024"       # gpt-image-1 landscape size for 16:9 scenes
 image_quality_scenes: "medium"
 image_quality_thumbnail: "high"
+
+# When true, each scene image is generated with the approved mascot reference
+# passed to the images.edit endpoint (strongest cross-day consistency, but the
+# model can anchor too hard on the reference's composition). When false, scene
+# images use text-only generation driven by the character bible.
+# Try both on your first few runs and keep whichever looks better.
+use_reference_image: true
+
+# Thumbnail title text layout.
+thumbnail_font_size: 72
+thumbnail_max_title_lines: 3

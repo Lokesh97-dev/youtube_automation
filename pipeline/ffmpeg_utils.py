@@ -9,10 +9,21 @@ function that actually shells out.
 """
 import subprocess
 from pathlib import Path
+from typing import Optional
+
+
+class FFmpegError(RuntimeError):
+    """Raised with ffmpeg's stderr attached — the bare CalledProcessError
+    message omits it, which makes unattended failures undebuggable."""
 
 
 def run(cmd: list[str]) -> None:
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        tail = (result.stderr or "").strip().splitlines()[-15:]
+        raise FFmpegError(
+            f"ffmpeg failed (exit {result.returncode}): {' '.join(cmd[:6])} ...\n" + "\n".join(tail)
+        )
 
 
 def get_audio_duration_seconds(audio_path: Path) -> float:
@@ -52,7 +63,9 @@ def build_zoompan_cmd(image_path: Path, out_path: Path, duration_seconds: float,
 
 
 def build_concat_list_file(clip_paths: list[Path], list_path: Path) -> Path:
-    lines = [f"file '{p.resolve()}'" for p in clip_paths]
+    """Concat-demuxer manifest. Single quotes in paths are escaped per
+    ffmpeg's concat syntax."""
+    lines = [f"file '{str(p.resolve()).replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))}'" for p in clip_paths]
     list_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return list_path
 
@@ -66,12 +79,19 @@ def build_video_concat_cmd(list_path: Path, out_path: Path) -> list[str]:
     ]
 
 
-def build_audio_concat_cmd(audio_paths: list[Path], out_path: Path) -> list[str]:
-    concat_input = "concat:" + "|".join(str(p) for p in audio_paths)
+def build_audio_concat_cmd(list_path: Path, out_path: Path) -> list[str]:
+    """Uses the concat *demuxer* with a re-encode.
+
+    The `concat:` protocol byte-joins MP3 files including their ID3 headers,
+    which introduces small per-file offsets that accumulate across ~10 scenes
+    and drift narration out of sync with the captions and Ken Burns clips.
+    Decoding and re-encoding through the demuxer produces one correctly
+    timed stream.
+    """
     return [
         "ffmpeg", "-y",
-        "-i", concat_input,
-        "-acodec", "aac",
+        "-f", "concat", "-safe", "0", "-i", str(list_path),
+        "-c:a", "aac", "-b:a", "192k",
         str(out_path),
     ]
 
@@ -100,31 +120,51 @@ def build_final_mux_cmd(
     silent_video_path: Path,
     audio_track_path: Path,
     srt_path: Path,
-    watermark_path: Path,
     out_path: Path,
     cfg: dict,
+    watermark_path: Optional[Path] = None,
 ) -> list[str]:
-    """One pass: burn in captions, overlay watermark, mux narration audio,
-    encode to the final delivery codec/bitrate."""
-    margin = cfg["watermark_margin_px"]
-    filter_complex = (
-        f"[0:v]subtitles={_escape_ffmpeg_path(srt_path)}:"
+    """One pass: burn in captions, optionally overlay a watermark, mux the
+    narration audio, and encode to the final delivery codec.
+
+    `watermark_path` is optional — a missing branding asset should not stop
+    a video from rendering.
+    """
+    subtitles_filter = (
+        f"subtitles={_escape_ffmpeg_path(srt_path)}:"
         f"force_style='FontSize={cfg['caption_font_size']},"
-        f"PrimaryColour=&Hffffff,OutlineColour=&H000000,MarginV={cfg['caption_margin_v']}'[v1];"
-        f"[v1][2:v]overlay=W-w-{margin}:H-h-{margin}[vout]"
+        f"PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,"
+        f"Outline=2,MarginV={cfg['caption_margin_v']}'"
     )
-    return [
+
+    cmd = [
         "ffmpeg", "-y",
         "-i", str(silent_video_path),
         "-i", str(audio_track_path),
-        "-i", str(watermark_path),
+    ]
+
+    if watermark_path is not None:
+        margin = cfg["watermark_margin_px"]
+        cmd += ["-i", str(watermark_path)]
+        filter_complex = (
+            f"[0:v]{subtitles_filter}[v1];"
+            f"[v1][2:v]overlay=W-w-{margin}:H-h-{margin}[vout]"
+        )
+    else:
+        filter_complex = f"[0:v]{subtitles_filter}[vout]"
+
+    cmd += [
         "-filter_complex", filter_complex,
         "-map", "[vout]", "-map", "1:a",
-        "-c:v", cfg["video_codec"], "-b:v", cfg["video_bitrate"], "-crf", str(cfg["crf"]),
+        # CRF alone controls quality; specifying a target bitrate too would
+        # conflict and be silently ignored.
+        "-c:v", cfg["video_codec"], "-crf", str(cfg["crf"]),
+        "-pix_fmt", "yuv420p",
         "-c:a", cfg["audio_codec"],
         "-shortest",
         str(out_path),
     ]
+    return cmd
 
 
 def _escape_ffmpeg_path(path: Path) -> str:

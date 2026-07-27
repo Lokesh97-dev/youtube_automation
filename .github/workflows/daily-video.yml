@@ -14,18 +14,22 @@ on:
 permissions:
   contents: write
 
+# Two runs committing to docs/data/videos.json concurrently would conflict.
+concurrency:
+  group: daily-video
+  cancel-in-progress: false
+
 jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install ffmpeg
         run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
@@ -34,12 +38,21 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Resolve run date
+        id: run_date
+        # Input is passed via env, not interpolated into the script body.
+        env:
+          INPUT_DATE: ${{ inputs.date }}
         run: |
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            echo "RUN_DATE=${{ github.event.inputs.date }}" >> "$GITHUB_ENV"
+          if [ -n "${INPUT_DATE}" ]; then
+            if ! date -d "${INPUT_DATE}" +%F >/dev/null 2>&1; then
+              echo "Invalid date input: ${INPUT_DATE}" >&2
+              exit 1
+            fi
+            RESOLVED="${INPUT_DATE}"
           else
-            echo "RUN_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
+            RESOLVED="$(date -u +%F)"
           fi
+          echo "value=${RESOLVED}" >> "$GITHUB_OUTPUT"
 
       - name: Run pipeline
         id: pipeline
@@ -49,27 +62,42 @@ jobs:
           GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_DATE: ${{ steps.run_date.outputs.value }}
         run: python scripts/run_pipeline.py --date "$RUN_DATE"
 
       - name: Commit dashboard status update
         if: always()
+        env:
+          RUN_DATE: ${{ steps.run_date.outputs.value }}
         run: |
           git config user.name "youtube-automation-bot"
           git config user.email "actions@users.noreply.github.com"
           git add docs/data/videos.json docs/videos
-          git diff --cached --quiet || git commit -m "Update pipeline status for $RUN_DATE [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "No status change to commit."
+            exit 0
+          fi
+          git commit -m "Update pipeline status for ${RUN_DATE} [skip ci]"
+          # The branch may have moved since checkout; rebase before pushing.
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 5
+          done
+          echo "Failed to push status update after 3 attempts." >&2
+          exit 1
 
       - name: Upload video artifact
         if: steps.pipeline.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: video-${{ env.RUN_DATE }}
+          name: video-${{ steps.run_date.outputs.value }}
           path: |
-            out/${{ env.RUN_DATE }}/video/final.mp4
-            out/${{ env.RUN_DATE }}/thumbnail/thumb.jpg
-            out/${{ env.RUN_DATE }}/description.txt
-            out/${{ env.RUN_DATE }}/tags.txt
+            out/${{ steps.run_date.outputs.value }}/video/final.mp4
+            out/${{ steps.run_date.outputs.value }}/thumbnail/thumb.jpg
+            out/${{ steps.run_date.outputs.value }}/description.txt
+            out/${{ steps.run_date.outputs.value }}/tags.txt
+            out/${{ steps.run_date.outputs.value }}/UPLOAD_CHECKLIST.txt
           retention-days: 7
 
       - name: Fail workflow if pipeline failed

@@ -25,22 +25,37 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Required: status_store imports pipeline.config, which needs
+      # python-dotenv. Without this the job fails on ImportError.
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
       - name: Update status record
-        run: |
-          python -c "
-          from pipeline import status_store
-          status_store.update_record(
-              '${{ github.event.inputs.video_id }}',
-              status='uploaded',
-              youtube_uploaded=True,
-              youtube_url='${{ github.event.inputs.youtube_url }}',
-          )
-          "
+        # Inputs are passed as environment variables, never interpolated into
+        # the script body — ${{ }} interpolation of user input is a script
+        # injection vector.
+        env:
+          VIDEO_ID: ${{ inputs.video_id }}
+          YOUTUBE_URL: ${{ inputs.youtube_url }}
+        run: python scripts/mark_uploaded.py
 
       - name: Commit status update
+        env:
+          VIDEO_ID: ${{ inputs.video_id }}
         run: |
           git config user.name "youtube-automation-bot"
           git config user.email "actions@users.noreply.github.com"
           git add docs/data/videos.json
-          git diff --cached --quiet || git commit -m "Mark ${{ github.event.inputs.video_id }} as uploaded [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "No status change to commit."
+            exit 0
+          fi
+          git commit -m "Mark ${VIDEO_ID} as uploaded [skip ci]"
+          # Another run may have pushed since checkout; rebase before pushing.
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 5
+          done
+          echo "Failed to push status update after 3 attempts." >&2
+          exit 1

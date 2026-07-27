@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""One-time setup helper: generate candidate portraits of Rhymo (the mascot)
-so you can pick one to become the permanent visual reference every future
-video is anchored to.
+"""One-time setup helper: generate candidate portraits of the mascot so you
+can pick one to become the permanent visual reference every future video is
+anchored to.
+
+REVIEW THIS CAREFULLY BEFORE APPROVING. This is the single human checkpoint
+in an otherwise unattended pipeline. Reject any candidate that resembles a
+character you recognise from an existing film, show, book, or game —
+generative image models can reproduce characters from their training data,
+and this one image propagates into every video you publish.
 
 Usage:
     # 1. Generate a few candidates to review:
@@ -67,7 +73,8 @@ def approve(candidate_path: Path) -> None:
         raise SystemExit(f"{candidate_path} does not exist.")
     REFERENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(candidate_path, REFERENCE_PATH)
-    print(f"Approved. Saved as {REFERENCE_PATH} — commit this file to lock in Rhymo's look.")
+    name = character_bible.load()["name"]
+    print(f"Approved. Saved as {REFERENCE_PATH} — commit this file to lock in {name}'s look.")
 
 
 def main() -> None:

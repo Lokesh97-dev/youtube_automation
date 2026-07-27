@@ -9,6 +9,16 @@ from pipeline import ffmpeg_utils, status_store
 from pipeline.config import CONFIG_DIR, REPO_ROOT
 
 
+def _resolve_watermark(video_cfg: dict) -> Path | None:
+    """Watermark is optional branding — a missing file should never stop a
+    video from rendering (it previously crashed every run)."""
+    configured = video_cfg.get("watermark_path")
+    if not configured:
+        return None
+    path = REPO_ROOT / configured
+    return path if path.exists() else None
+
+
 def run(video_id: str, out_dir: Path) -> dict:
     script = json.loads((out_dir / "script.json").read_text(encoding="utf-8"))
     durations = json.loads((out_dir / "audio" / "durations.json").read_text(encoding="utf-8"))["durations_seconds"]
@@ -34,20 +44,27 @@ def run(video_id: str, out_dir: Path) -> dict:
     silent_video_path = video_dir / "silent.mp4"
     ffmpeg_utils.run(ffmpeg_utils.build_video_concat_cmd(list_path, silent_video_path))
 
-    # 3. Concat narration audio.
+    # 3. Concat narration audio via the concat demuxer (see ffmpeg_utils for
+    #    why the concat: protocol is unsuitable here).
     audio_paths = [audio_dir / f"scene_{i:02d}.mp3" for i in range(1, len(scenes) + 1)]
-    audio_track_path = video_dir / "audio_track.aac"
-    ffmpeg_utils.run(ffmpeg_utils.build_audio_concat_cmd(audio_paths, audio_track_path))
+    audio_list_path = video_dir / "audio_concat_list.txt"
+    ffmpeg_utils.build_concat_list_file(audio_paths, audio_list_path)
+    audio_track_path = video_dir / "audio_track.m4a"
+    ffmpeg_utils.run(ffmpeg_utils.build_audio_concat_cmd(audio_list_path, audio_track_path))
 
     # 4. Captions (one block per scene).
     srt_path = video_dir / "captions.srt"
     ffmpeg_utils.build_srt([s["narration_text"] for s in scenes], durations, srt_path)
 
-    # 5. Final mux: captions + watermark + audio, encode to delivery codec.
-    watermark_path = REPO_ROOT / video_cfg["watermark_path"]
+    # 5. Final mux: captions + optional watermark + audio, encode to delivery codec.
     final_path = video_dir / "final.mp4"
     cmd = ffmpeg_utils.build_final_mux_cmd(
-        silent_video_path, audio_track_path, srt_path, watermark_path, final_path, video_cfg
+        silent_video_path,
+        audio_track_path,
+        srt_path,
+        final_path,
+        video_cfg,
+        watermark_path=_resolve_watermark(video_cfg),
     )
     ffmpeg_utils.run(cmd)
 

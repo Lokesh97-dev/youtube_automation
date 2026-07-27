@@ -1,12 +1,17 @@
-# Rhymo's Rhyme Time — Automated Kids Channel Pipeline
+# Hoplin's Rhyme Time — Automated Kids Channel Pipeline
 
 Fully automated daily pipeline for a kids' YouTube channel of short, narrated
 (spoken, not sung) rhyming stories for ages 3-6 — moral/educational themes
 (sharing, counting, manners, colors, kindness...) told by a recurring mascot,
-**Rhymo the bunny**. Each run picks a fresh, non-repeating story, generates
+**Hoplin the bunny**. Each run picks a fresh, non-repeating story, generates
 narration + illustrations, assembles a captioned video, and updates a status
 dashboard. You review the output and upload it to YouTube yourself — this
 pipeline does not touch the YouTube API.
+
+> **Read [docs/COMPLIANCE.md](docs/COMPLIANCE.md) before publishing anything.**
+> It covers COPPA/"Made for Kids" (a legal obligation), why AI-generated
+> videos are largely not copyrightable, trademark screening for the mascot
+> name, and YouTube's mass-produced content policy.
 
 ## How it works
 
@@ -14,18 +19,17 @@ pipeline does not touch the YouTube API.
 2. **Script** — Claude writes the scene-by-scene rhyming narration.
 3. **TTS** — Google Cloud Text-to-Speech narrates each scene.
 4. **Images** — OpenAI `gpt-image-1` illustrates each scene, using a fixed
-   character description + a reference portrait so Rhymo looks the same
-   every day.
-5. **Video** — `ffmpeg` assembles Ken Burns pan/zoom clips, captions, a
-   watermark, and the narration track into `final.mp4`.
+   character description + an approved reference portrait so Hoplin looks the
+   same every day.
+5. **Video** — `ffmpeg` assembles Ken Burns pan/zoom clips, captions, an
+   optional watermark, and the narration track into `final.mp4`.
 6. **Thumbnail** — a dedicated hero image with the title composited on top.
-7. **Package** — the small preview thumbnail + status get committed to the
-   dashboard; the full video/thumbnail/description/tags are uploaded as a
-   downloadable GitHub Actions artifact.
+7. **Package** — the preview thumbnail + status are committed to the
+   dashboard; the video, thumbnail, description, tags, and an upload
+   checklist are uploaded as a downloadable GitHub Actions artifact.
 
 Status of every video lives in `docs/data/videos.json` and is rendered by
-the static dashboard at `docs/index.html` (enable via **Settings → Pages →
-Deploy from branch: main / docs**).
+the static dashboard at `docs/index.html`.
 
 ## One-time setup
 
@@ -35,61 +39,74 @@ Deploy from branch: main / docs**).
    - `GOOGLE_TTS_API_KEY` — enable the Text-to-Speech API in a Google Cloud
      project, then create an API key (APIs & Services → Credentials)
    - `OPENAI_API_KEY` — https://platform.openai.com
-2. **Generate and approve the mascot reference image once** — this is what
-   keeps Rhymo visually consistent across every future video (until this
-   file exists, image generation falls back to text-only prompts, which
-   drift over time). With `OPENAI_API_KEY` set locally (e.g. in a `.env`
-   file, see `.env.example`):
+
+2. **Generate and approve the mascot reference image once.** This is the only
+   human checkpoint in the pipeline and it propagates into every video, so
+   review it properly (see [COMPLIANCE §3](docs/COMPLIANCE.md)). With
+   `OPENAI_API_KEY` set locally (copy `.env.example` to `.env`):
    ```
+   pip install -r requirements.txt
    python scripts/generate_mascot.py --count 4
-   # review the candidates in out/mascot_candidates/, then:
+   # review out/mascot_candidates/, then approve your favourite:
    python scripts/generate_mascot.py --approve out/mascot_candidates/candidate_02.png
    ```
    Commit the resulting `assets/branding/mascot_reference.png`.
-3. **Add a watermark image** at `assets/branding/watermark.png` (small PNG,
-   transparent background).
-4. *(Optional)* Add a caption font at `assets/fonts/OpenSans-Bold.ttf` for
-   custom thumbnail text styling — otherwise a default font is used.
+
+3. *(Optional)* Add a watermark PNG at `assets/branding/watermark.png`. If
+   absent, the watermark overlay is skipped — the render still succeeds.
+
+4. *(Optional)* Add `assets/fonts/OpenSans-Bold.ttf` for nicer thumbnail
+   text — otherwise a default font is used. Ship its licence file too.
+
 5. Enable GitHub Pages: **Settings → Pages → Source: Deploy from a branch →
    Branch: main, folder: /docs**.
 
 ## Running
 
-- **Manually via GitHub Actions**: Actions tab → "Daily Video Generation" →
-  Run workflow (optionally set a specific `date`).
-- **Locally**: `pip install -r requirements.txt`, copy `.env.example` to
-  `.env` and fill in keys, then `python scripts/run_pipeline.py`.
+- **Via GitHub Actions**: Actions tab → "Daily Video Generation" → Run
+  workflow (optionally set a specific `date`).
+- **Locally**: fill in `.env`, then `python scripts/run_pipeline.py`.
 
-The pipeline runs on `workflow_dispatch` only for now — review a few videos'
-quality before uncommenting the daily `cron` schedule in
-`.github/workflows/daily-video.yml`.
+The pipeline runs on `workflow_dispatch` only for now. **Review several
+videos' quality before uncommenting the daily `cron`** in
+[.github/workflows/daily-video.yml](.github/workflows/daily-video.yml).
+
+On your first runs, try `use_reference_image` both ways in
+`config/video.yaml`. Passing the mascot reference to the image API gives the
+strongest consistency, but can make the model anchor on the reference's
+composition instead of building the requested scene. Keep whichever looks
+better.
 
 ## After uploading a video
 
-Run the **"Mark Video Uploaded"** workflow (Actions tab) with the video's
-date and the YouTube URL — this updates the dashboard without needing to
-edit any files by hand.
+Run the **"Mark Video Uploaded"** workflow with the video's date and the
+YouTube URL. This updates the dashboard without hand-editing JSON.
 
 ## Cost
 
-Roughly **$0.50–0.85 per video** (Claude + Google TTS + `gpt-image-1` at
-medium quality) → **~$15–25/month** at one video/day. Keep scene images at
-`medium` quality (see `config/video.yaml`) — bumping all of them to `high`
-can push the monthly cost past $45.
+Roughly **$0.50–0.85 per video** → **~$15–25/month** at one video/day. Actual
+per-video spend is measured (not estimated) from real token/character/image
+counts and shown on the dashboard; rates live in
+[pipeline/costs.py](pipeline/costs.py) and should be checked against provider
+pricing periodically.
 
-## Notes on YouTube policy
+Keep scene images at `medium` quality in `config/video.yaml` — moving all of
+them to `high` pushes the monthly cost past $45.
 
-- This content targets children and must be marked **Made for Kids** on
-  upload, which disables personalized ads/comments.
-- To avoid YouTube's repetitive/inauthentic-content policy, every video's
-  premise is checked against recent history and rejected if too similar
-  (see `pipeline/topics_bank.py`) — keep this enabled even as you tune
-  other parts of the pipeline.
+## Testing
+
+```
+pip install -r requirements.txt
+pytest tests/ -q
+```
+
+Tests cover the pure logic (topic rotation and de-duplication, status store
+transitions, ffmpeg command construction, cost arithmetic). They do not call
+paid APIs.
 
 ## Roadmap
 
-- **Phase 2**: turn on the daily cron, add background music with ducking,
-  word-level caption timing, an intro/outro bumper, per-video cost tracking
-  on the dashboard.
+- **Phase 2**: turn on the daily cron, add licensed background music with
+  ducking, word-level caption timing, an intro/outro bumper.
 - **Phase 3**: mascot outfit variants, embedding-based duplicate detection,
-  multi-thumbnail selection, parallelized image generation.
+  multi-thumbnail selection, parallelised image generation.

@@ -1,6 +1,12 @@
 # Rotating theme categories. stage_01_topic.py picks one deterministically
 # by (day_of_year % len(categories)) so the *type* of lesson varies
 # systematically instead of relying purely on LLM randomness.
+#
+# The category count and the history window below are the main defence
+# against YouTube's repetitive/mass-produced content policy. More categories
+# = longer gap before a theme repeats; a larger history window = the model
+# sees more of what it already wrote and is told not to repeat it.
+# Do not shrink these without a good reason.
 
 categories:
   - id: sharing
@@ -33,10 +39,46 @@ categories:
   - id: routines
     label: "Healthy Routines"
     prompt_hint: "a story about a bedtime, mealtime, or cleanup routine"
+  - id: patience
+    label: "Patience & Waiting"
+    prompt_hint: "a story about waiting for something worth waiting for"
+  - id: sharing_feelings
+    label: "Naming Feelings"
+    prompt_hint: "a story about noticing and naming a big feeling like sad, cross, or excited"
+  - id: helping
+    label: "Helping & Responsibility"
+    prompt_hint: "a story about taking care of a small job or helping someone who needs it"
+  - id: alphabet
+    label: "Letters & Sounds"
+    prompt_hint: "a story that plays with letter sounds or spotting a letter in the world"
+  - id: opposites
+    label: "Opposites & Comparisons"
+    prompt_hint: "a story built around opposites like big/small, fast/slow, loud/quiet"
+  - id: weather
+    label: "Weather & Seasons"
+    prompt_hint: "a story about a kind of weather or a change of season"
+  - id: food
+    label: "Food & Trying New Tastes"
+    prompt_hint: "a story about trying an unfamiliar food or growing something to eat"
+  - id: apologies
+    label: "Mistakes & Apologies"
+    prompt_hint: "a story about making a small mistake and putting it right"
+  - id: curiosity
+    label: "Curiosity & Questions"
+    prompt_hint: "a story about wondering why and finding out the answer"
+  - id: quiet
+    label: "Calm & Quiet Moments"
+    prompt_hint: "a gentle story about slowing down, resting, or noticing small things"
 
-# Max number of recent titles/premises given to the LLM as "do not repeat this"
-recent_history_window: 30
+# How many recent titles/premises are shown to the LLM as "do not repeat this".
+# Should comfortably exceed len(categories) so the model sees several full
+# rotations of history, not just the current cycle.
+recent_history_window: 90
 
 # difflib.SequenceMatcher ratio above which a new title is considered a
-# near-duplicate and triggers a single re-prompt.
+# near-duplicate and triggers a re-prompt.
 similarity_reject_threshold: 0.82
+
+# How many times to re-prompt when the model returns a near-duplicate before
+# failing the stage.
+max_duplicate_retries: 3

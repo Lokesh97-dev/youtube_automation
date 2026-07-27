@@ -1,15 +1,20 @@
 # Canonical mascot description. This text is interpolated verbatim into every
 # image-generation prompt, every day, forever. Do not paraphrase or regenerate
 # it — visual consistency depends on the exact wording staying fixed.
+#
+# NAMING NOTE: "Hoplin" was chosen after screening candidate names against
+# YouTube channels and trademark databases (see docs/COMPLIANCE.md). A web
+# screen is NOT a legal clearance search — do a USPTO/TESS search and consider
+# an attorney before building brand equity or selling merchandise.
 
-name: "Rhymo"
+name: "Hoplin"
 
 description: >
-  Rhymo, a small round bunny character with sky-blue fur (hex #7EC8E3),
+  Hoplin, a small round bunny character with sky-blue fur (hex #7EC8E3),
   a soft cream-white belly and muzzle (hex #FFF8E7), long upright ears with
   pale pink inner ears (hex #F8C8DC), large round dark-brown eyes with a
   single white eye-highlight, a small pink triangle nose, and a friendly
-  closed-mouth smile. Rhymo wears a sunshine-yellow knit scarf (hex #FFD23F)
+  closed-mouth smile. Hoplin wears a sunshine-yellow knit scarf (hex #FFD23F)
   looped once around the neck. Body proportions are chibi-style: oversized
   head roughly 45% of total body height, short stubby arms and legs, no
   visible fingers (rounded paw-mitten hands), always shown standing or
@@ -23,15 +28,21 @@ art_style: >
   the image, no other named characters unless explicitly listed in the
   scene's visual description.
 
+# The IP constraint below is a deliberate legal safeguard, not styling —
+# generative image models can reproduce characters from their training data.
+# Keep it in every prompt, and human-review the mascot reference image.
 negative_constraints:
   - "no photorealism"
   - "no text or letters in the image"
   - "no watermarks or logos"
   - "no additional mascot characters not described above"
   - "no scary or dark imagery"
+  - "must not resemble any existing copyrighted, trademarked, or well-known
+     cartoon, film, television, or video-game character"
+  - "no depictions of real people or real brands"
 
 # Prepended/appended to every image prompt by pipeline/character_bible.py
-style_prefix: "Children's storybook illustration of Rhymo the bunny. "
+style_prefix: "Original children's storybook illustration of Hoplin the bunny. "
 style_suffix: >
   Style: soft pastel storybook illustration, flat colors, rounded shapes,
   warm lighting, no text in image.

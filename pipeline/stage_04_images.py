@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from pipeline import image_client, character_bible
+from pipeline import character_bible, image_client
 from pipeline.config import CONFIG_DIR
 
 
@@ -13,6 +13,7 @@ def run(video_id: str, out_dir: Path) -> dict:
     script = json.loads((out_dir / "script.json").read_text(encoding="utf-8"))
     video_cfg = yaml.safe_load((CONFIG_DIR / "video.yaml").read_text(encoding="utf-8"))
     images_dir = out_dir / "images"
+    use_reference = video_cfg.get("use_reference_image", True)
 
     image_paths = []
     for i, scene in enumerate(script["scenes"], start=1):
@@ -23,6 +24,8 @@ def run(video_id: str, out_dir: Path) -> dict:
             image_path,
             size=video_cfg["image_size"],
             quality=video_cfg["image_quality_scenes"],
+            use_reference=use_reference,
+            out_dir=out_dir,
         )
         image_paths.append(str(image_path))
 

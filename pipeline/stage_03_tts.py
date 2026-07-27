@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pipeline import tts_client, ffmpeg_utils
+from pipeline import costs, ffmpeg_utils, tts_client
 
 
 def run(video_id: str, out_dir: Path) -> dict:
@@ -13,7 +13,9 @@ def run(video_id: str, out_dir: Path) -> dict:
     durations = []
     for i, scene in enumerate(script["scenes"], start=1):
         audio_path = audio_dir / f"scene_{i:02d}.mp3"
-        tts_client.synthesize(scene["narration_text"], audio_path)
+        text = scene["narration_text"]
+        tts_client.synthesize(text, audio_path)
+        costs.record_tts(out_dir, len(text))
         duration = ffmpeg_utils.get_audio_duration_seconds(audio_path)
         durations.append(duration)
 
