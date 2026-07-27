@@ -2,7 +2,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(REPO_ROOT / ".env")  # no-op if the file doesn't exist (e.g. in CI, which uses real secrets)
 CONFIG_DIR = REPO_ROOT / "config"
 ASSETS_DIR = REPO_ROOT / "assets"
 DOCS_DIR = REPO_ROOT / "docs"

@@ -35,10 +35,17 @@ Deploy from branch: main / docs**).
    - `GOOGLE_TTS_API_KEY` — enable the Text-to-Speech API in a Google Cloud
      project, then create an API key (APIs & Services → Credentials)
    - `OPENAI_API_KEY` — https://platform.openai.com
-2. **Generate and approve the mascot reference image once**, then save it to
-   `assets/branding/mascot_reference.png` — this is what keeps Rhymo visually
-   consistent across every future video. Until this file exists, image
-   generation falls back to text-only prompts (weaker consistency).
+2. **Generate and approve the mascot reference image once** — this is what
+   keeps Rhymo visually consistent across every future video (until this
+   file exists, image generation falls back to text-only prompts, which
+   drift over time). With `OPENAI_API_KEY` set locally (e.g. in a `.env`
+   file, see `.env.example`):
+   ```
+   python scripts/generate_mascot.py --count 4
+   # review the candidates in out/mascot_candidates/, then:
+   python scripts/generate_mascot.py --approve out/mascot_candidates/candidate_02.png
+   ```
+   Commit the resulting `assets/branding/mascot_reference.png`.
 3. **Add a watermark image** at `assets/branding/watermark.png` (small PNG,
    transparent background).
 4. *(Optional)* Add a caption font at `assets/fonts/OpenSans-Bold.ttf` for
