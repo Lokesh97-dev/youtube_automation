@@ -1,0 +1,42 @@
+# Rotating theme categories. stage_01_topic.py picks one deterministically
+# by (day_of_year % len(categories)) so the *type* of lesson varies
+# systematically instead of relying purely on LLM randomness.
+
+categories:
+  - id: sharing
+    label: "Sharing & Generosity"
+    prompt_hint: "a story about sharing something with a friend or sibling"
+  - id: counting
+    label: "Counting & Numbers"
+    prompt_hint: "a story that teaches counting from 1 to 10 through a fun activity"
+  - id: manners
+    label: "Manners & Politeness"
+    prompt_hint: "a story about saying please, thank you, or being polite"
+  - id: colors
+    label: "Colors & Shapes"
+    prompt_hint: "a story that teaches recognizing colors or shapes through play"
+  - id: kindness
+    label: "Kindness & Empathy"
+    prompt_hint: "a story about being kind to someone who is sad, new, or different"
+  - id: courage
+    label: "Courage & Trying New Things"
+    prompt_hint: "a story about being brave enough to try something new"
+  - id: honesty
+    label: "Honesty & Trust"
+    prompt_hint: "a story about telling the truth even when it's hard"
+  - id: friendship
+    label: "Friendship & Teamwork"
+    prompt_hint: "a story about working together with friends to solve a small problem"
+  - id: nature
+    label: "Nature & Animals"
+    prompt_hint: "a story exploring the outdoors, seasons, or animal friends"
+  - id: routines
+    label: "Healthy Routines"
+    prompt_hint: "a story about a bedtime, mealtime, or cleanup routine"
+
+# Max number of recent titles/premises given to the LLM as "do not repeat this"
+recent_history_window: 30
+
+# difflib.SequenceMatcher ratio above which a new title is considered a
+# near-duplicate and triggers a single re-prompt.
+similarity_reject_threshold: 0.82

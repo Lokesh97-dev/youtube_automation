@@ -1,0 +1,46 @@
+name: Mark Video Uploaded
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "Video id / date to mark uploaded (YYYY-MM-DD)"
+        required: true
+        type: string
+      youtube_url:
+        description: "The YouTube URL you uploaded it to"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  mark-uploaded:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Update status record
+        run: |
+          python -c "
+          from pipeline import status_store
+          status_store.update_record(
+              '${{ github.event.inputs.video_id }}',
+              status='uploaded',
+              youtube_uploaded=True,
+              youtube_url='${{ github.event.inputs.youtube_url }}',
+          )
+          "
+
+      - name: Commit status update
+        run: |
+          git config user.name "youtube-automation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data/videos.json
+          git diff --cached --quiet || git commit -m "Mark ${{ github.event.inputs.video_id }} as uploaded [skip ci]"
+          git push

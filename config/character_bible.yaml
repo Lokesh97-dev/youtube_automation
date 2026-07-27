@@ -1,0 +1,39 @@
+# Canonical mascot description. This text is interpolated verbatim into every
+# image-generation prompt, every day, forever. Do not paraphrase or regenerate
+# it — visual consistency depends on the exact wording staying fixed.
+
+name: "Rhymo"
+
+description: >
+  Rhymo, a small round bunny character with sky-blue fur (hex #7EC8E3),
+  a soft cream-white belly and muzzle (hex #FFF8E7), long upright ears with
+  pale pink inner ears (hex #F8C8DC), large round dark-brown eyes with a
+  single white eye-highlight, a small pink triangle nose, and a friendly
+  closed-mouth smile. Rhymo wears a sunshine-yellow knit scarf (hex #FFD23F)
+  looped once around the neck. Body proportions are chibi-style: oversized
+  head roughly 45% of total body height, short stubby arms and legs, no
+  visible fingers (rounded paw-mitten hands), always shown standing or
+  sitting upright.
+
+art_style: >
+  Soft children's storybook illustration, flat pastel color palette,
+  gentle rounded shapes with no sharp edges, thick soft outlines,
+  warm even lighting with no harsh shadows, simple uncluttered background
+  matching the scene description, no text or words rendered anywhere in
+  the image, no other named characters unless explicitly listed in the
+  scene's visual description.
+
+negative_constraints:
+  - "no photorealism"
+  - "no text or letters in the image"
+  - "no watermarks or logos"
+  - "no additional mascot characters not described above"
+  - "no scary or dark imagery"
+
+# Prepended/appended to every image prompt by pipeline/character_bible.py
+style_prefix: "Children's storybook illustration of Rhymo the bunny. "
+style_suffix: >
+  Style: soft pastel storybook illustration, flat colors, rounded shapes,
+  warm lighting, no text in image.
+
+reference_image: "assets/branding/mascot_reference.png"

@@ -1,0 +1,77 @@
+name: Daily Video Generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to generate (YYYY-MM-DD). Leave blank for today."
+        required: false
+        type: string
+  # Phase 2: uncomment once MVP output quality has been reviewed and approved.
+  # schedule:
+  #   - cron: "0 6 * * *"  # 06:00 UTC daily
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Resolve run date
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            echo "RUN_DATE=${{ github.event.inputs.date }}" >> "$GITHUB_ENV"
+          else
+            echo "RUN_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run pipeline
+        id: pipeline
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python scripts/run_pipeline.py --date "$RUN_DATE"
+
+      - name: Commit dashboard status update
+        if: always()
+        run: |
+          git config user.name "youtube-automation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data/videos.json docs/videos
+          git diff --cached --quiet || git commit -m "Update pipeline status for $RUN_DATE [skip ci]"
+          git push
+
+      - name: Upload video artifact
+        if: steps.pipeline.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ env.RUN_DATE }}
+          path: |
+            out/${{ env.RUN_DATE }}/video/final.mp4
+            out/${{ env.RUN_DATE }}/thumbnail/thumb.jpg
+            out/${{ env.RUN_DATE }}/description.txt
+            out/${{ env.RUN_DATE }}/tags.txt
+          retention-days: 7
+
+      - name: Fail workflow if pipeline failed
+        if: steps.pipeline.outcome == 'failure'
+        run: exit 1

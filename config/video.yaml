@@ -1,0 +1,29 @@
+width: 1920
+height: 1080
+fps: 30
+video_codec: "libx264"
+audio_codec: "aac"
+video_bitrate: "4M"
+crf: 20
+
+# Ken Burns pan/zoom: fraction the image zooms in over the clip duration.
+ken_burns_zoom_start: 1.0
+ken_burns_zoom_end: 1.08
+
+# Caption styling (burned in via ffmpeg subtitles filter).
+caption_font: "assets/fonts/OpenSans-Bold.ttf"
+caption_font_size: 46
+caption_font_color: "white"
+caption_outline_color: "black"
+caption_margin_v: 80
+
+watermark_path: "assets/branding/watermark.png"
+watermark_opacity: 0.85
+watermark_margin_px: 24
+
+background_music_path: null   # set in Phase 2, e.g. assets/music/soft-loop.mp3
+background_music_volume_db: -22
+
+image_size: "1536x1024"       # gpt-image-1 landscape size for 16:9 scenes
+image_quality_scenes: "medium"
+image_quality_thumbnail: "high"
